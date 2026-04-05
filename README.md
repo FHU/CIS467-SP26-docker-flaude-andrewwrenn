@@ -82,7 +82,15 @@ curl -I http://localhost:8080/
 ### 0.1 - Reflection Question
 > What headers does nginx send by default? Are any of them surprising?
 
----
+--- Server: 
+nginx/1.x.x — identifies the server software and version
+Date — timestamp of the response
+Content-Type — the MIME type of the response
+Content-Length — size of the response body in bytes
+Last-Modified — when the file was last changed
+ETag — a unique identifier for the version of the resource
+Accept-Ranges: bytes — tells the client it can request partial content
+Connection: keep-alive — indicates the connection will stay open for more requests
 
 ## Checkpoint 1 — Compression
 
@@ -113,7 +121,7 @@ check the **Response Headers** panel.
 ### 1.1 Reflection Question
 > Why does `gzip_min_length` exist? What's the cost of compressing a 200-byte file?
 
----
+--- gzip_min_length exists because below a certain file size the overhead of compression costs more than it saves. The default in nginx is 20 bytes which is honestly pretty low. Most people set it somewhere between 256 and 1000 bytes in practice. It is one of those settings that exists to keep you from doing work that makes things slower rather than faster.
 
 ## Checkpoint 2 — Cache Control
 
@@ -151,7 +159,9 @@ Confirm different `Cache-Control` values on each response.
 > What would happen if a user's browser cached a stale `index.html` pointing to
 > old JS bundles?
 
----
+--- index.html in a single page app is the entry point for everything. It is the file that tells the browser which JavaScript bundles to go load. And this is where the problem lives. 
+
+ if the browser has aggressively cached the old index.html it is still pointing to main.a3f9c2.js. Which no longer exists on your server.
 
 ## Checkpoint 3 — Security Headers
 
@@ -187,7 +197,7 @@ a tunneling tool, or deploy to a VPS for full scoring).
 > and observe the browser console error. What does this teach you about
 > how CSP is enforced?
 
----
+--- CSP is a second line of defense. It is assuming that despite your best efforts something malicious might make it into your HTML and it is the browser's job to refuse to run it. That is a fundamentally different security model than just trying to prevent bad input from getting in at all. You are building a fallback that assumes you might lose the first fight.
 
 ## Checkpoint 4 — SPA Routing Fallback
 
@@ -233,7 +243,7 @@ error_page 404 /404.html;
 > If every route returns `index.html` with a 200, what are the SEO implications?
 > How do SSR frameworks like Next.js solve this problem?
 
----
+--- The root of the problem is that a standard SPA treats the browser as the place where the app gets built. SSR frameworks move that work to the server so that by the time anything reaches a browser or a crawler the content is already there. The JavaScript still runs on the client afterward to hydrate the page and make it interactive but the critical content does not depend on it. That distinction matters a whole lot for SEO and honestly for performance too since users on slow connections see real content faster as well.
 
 ## Checkpoint 5 — Rate Limiting
 
@@ -271,7 +281,7 @@ Some responses should return `429 Too Many Requests` once the burst is exhausted
 > Rate limiting on a static site might seem overkill — when would it actually
 > matter in production?
 
----
+--- For a personal project or a low traffic site rate limiting on purely static content is probably not worth the configuration complexity. But the moment you are in production with real traffic and real users it stops being overkill and starts being basic hygiene. The cost of setting it up is low. The cost of not having it when you need it can be really high. It is one of those things like backing up your database where it feels unnecessary right up until the moment it is the only thing that saves you.
 
 ## Checkpoint 6 — Block Sensitive Paths
 
@@ -309,7 +319,7 @@ curl -I http://localhost:8080/.env
 > Why return `404` instead of `403 Forbidden`? What information does each
 > status code leak to an attacker?
 
----
+--- Return the minimum amount of information necessary to communicate what the client needs to know. Error messages, status codes, and even response timing can all leak information to someone who is paying attention. A well designed system thinks about what each response communicates not just to a normal user but to someone who is actively looking for weaknesses.
 
 ## Final nginx.conf
 
@@ -327,7 +337,14 @@ Submit a short written response (200-500 words) answering the following:
 3. What does this lab reveal about what managed hosting platforms like Netlify
    are silently doing on your behalf?
 
----
+--- Question 1 — Most Visible Impact
+The configuration that had the most visible impact was gzip compression. And the reason is that it is the one where you can actually see the difference right in front of you. When you pull up the network tab before and after enabling it the file sizes drop and the change is immediate and obvious. Everything else we configured was important but a lot of it is invisible by nature. Security headers do not show you anything dramatic. But gzip shows you the numbers and the numbers are different and that makes the concept stick in a way the others did not.
+
+Question 2 — Real World Attack
+The header I want to talk about is X-Frame-Options. It prevents your page from being loaded inside an iframe on another site and the attack it mitigates is clickjacking. An attacker builds a page that looks completely normal but invisibly layered on top of it inside a transparent iframe is your real site. The user thinks they are clicking the attacker's button but they are actually clicking a real button on your site underneath it. Confirming a transfer. Changing an email address. Deleting an account. And they have no idea. Setting X-Frame-Options: DENY means your page refuses to render inside an iframe at all and that attack falls apart immediately.
+
+Question 3 — What Managed Platforms Are Doing Silently
+This is the most eye opening part of the lab honestly. When you use Netlify or Vercel you drop your files in and it just works. What this lab reveals is that there is a whole layer of configuration underneath that somebody had to think through. Gzip. Security headers. Caching rules. Rate limiting. All of it is being handled silently on your behalf. And that is great until you need to step outside what the platform provides and you realize you have no idea what is actually running underneath you.
 
 ## Grading Rubric
 
